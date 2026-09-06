@@ -1,0 +1,87 @@
+# Docker Compose Stack for CrimsonKestrel Indoor Gateway (v3)
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: crimson_kestrel_broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - weather_net
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: crimson_kestrel_database
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - weather_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crimson_kestrel_dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET=${INFLUX_BUCKET}
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    depends_on:
+      - influxdb
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./gateway/grafana_dashboard.json:/etc/grafana/provisioning/dashboards/files/grafana_dashboard.json:ro
+    networks:
+      - weather_net
+
+  gateway_daemon:
+    build: ./gateway
+    container_name: crimson_kestrel_gateway
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - influxdb
+    # Explicit entrypoint guarantees that CMD arguments are passed to Python,
+    # preventing OCI runtime execution crashes regardless of Dockerfile syntax.
+    entrypoint: ["python", "crimson_kestrel_daemon.py"]
+    command: >
+      --host mosquitto
+      --port 1883
+      --outdir /app/data
+      --influx-url http://influxdb:8086
+      --influx-token "${INFLUX_TOKEN}"
+      --influx-org "${INFLUX_ORG}"
+      --influx-bucket "${INFLUX_BUCKET}"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - weather_net
+
+networks:
+  weather_net:
+    driver: bridge
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  influxdb_data:
+  grafana_data:

@@ -1,0 +1,39 @@
+# Arduino IDE / CLI / PlatformIO Build Artifacts
+.build/
+build/
+bin/
+out/
+lib/
+.pio/
+*.local.ino
+
+# Private Credentials & Config Files (CRITICAL - DO NOT REMOVE)
+secrets.h
+firmware/**/secrets.h
+*secrets.h
+.env
+influxDBAPIKey
+
+# Runtime-generated telemetry logs (rolling daily CSVs written by gateway_daemon)
+data/*.csv
+
+# KiCad CAD / Schematic Backup Files
+*.bck
+*.bak
+*-backups/
+_autosave-*
+*.kicad_pcb-bak
+
+# System and OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# IDE & Editor Local Configurations
+.vscode/
+.idea/
+*.swp
+*.suo
+*.user
+*.code-workspace

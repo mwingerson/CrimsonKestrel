@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: influxdb_telemetry
+    uid: influxdb_telemetry
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: ${INFLUX_ORG}
+      defaultBucket: ${INFLUX_BUCKET}
+      httpMode: POST
+    secureJsonData:
+      token: ${INFLUX_TOKEN}
