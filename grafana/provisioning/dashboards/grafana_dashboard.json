@@ -196,6 +196,7 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "displayName": "Dew Point (°F)",
           "color": {
             "mode": "thresholds"
           },

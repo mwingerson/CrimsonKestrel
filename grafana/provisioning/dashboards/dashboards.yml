@@ -1,13 +1,14 @@
 apiVersion: 1
 
 providers:
-  - name: crimson-kestrel
+  - name: 'CrimsonKestrel Weather Station'
     orgId: 1
-    folder: ""
+    folder: ''
     type: file
     disableDeletion: false
-    updateIntervalSeconds: 30
+    updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards/files
+      path: /etc/grafana/provisioning/dashboards/grafana_dashboard.json
       foldersFromFilesStructure: false
+

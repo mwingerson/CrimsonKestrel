@@ -227,6 +227,21 @@ The InfluxDB data source and the `gateway/grafana_dashboard.json` dashboard are 
 
 You will instantly be presented with a responsive, professional dashboard displaying your ambient environmental indices and live battery curves side-by-side!
 
+##### 💾 Grafana Data Persistence
+
+Grafana's own state (its SQLite database, alerting history, uploaded plugins) is bind-mounted to `./grafana/data` on the host rather than a Docker-managed named volume. This is a deliberate choice: keeping it inside the repo directory means the data is visible and easy to back up or inspect alongside everything else, instead of being tucked away under Docker's internal volume storage.
+
+The trade-off is a permissions gotcha. The `grafana` service runs as `user: "472:472"` in `docker-compose.yml` (matching the `grafana` user baked into the official image), but `./grafana/data` is created and owned by whatever host user first ran `docker compose up`. If that host UID isn't 472, Grafana fails on startup with:
+```
+Error: ✗ failed to check table existence: unable to open database file: permission denied
+GF_PATHS_DATA='/var/lib/grafana' is not writable.
+```
+Fix this by giving UID 472 real ownership of the directory:
+```bash
+sudo chown -R 472:472 grafana/data
+```
+This is the correct fix — it makes the on-disk owner match the user the container actually runs as, rather than loosening the directory's permission bits for every user on the host (e.g. `chmod -R o+rwX`), which "works" but leaves Grafana's session/db data world-writable for no reason beyond convenience.
+
 ---
 
 #### 🛠️ Standalone Sourcing and Documentation Assets

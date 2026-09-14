@@ -1,9 +1,13 @@
+# gateway/Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install paho-mqtt influxdb-client
+# Install required telemetry dependencies
+RUN pip install --no-cache-dir paho-mqtt influxdb-client
 
-COPY . .
+# Copy repository files into container
+COPY . /app/
 
-CMD ["python", "crimson_kestrel_daemon.py"]
+# Default execution entrypoint (can be overridden by docker-compose)
+CMD ["python3", "gateway/crimson_kestrel_daemon.py", "--host", "mosquitto", "--port", "1883"]

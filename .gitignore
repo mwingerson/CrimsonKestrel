@@ -17,6 +17,10 @@ influxDBAPIKey
 # Runtime-generated telemetry logs (rolling daily CSVs written by gateway_daemon)
 data/*.csv
 
+# Grafana runtime state (SQLite db, alerting state) - bind-mounted locally for easy
+# backup/inspection but it's live state, not source; provisioning/ is what's tracked
+grafana/data/
+
 # KiCad CAD / Schematic Backup Files
 *.bck
 *.bak

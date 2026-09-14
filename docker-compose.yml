@@ -1,87 +1,76 @@
-# Docker Compose Stack for CrimsonKestrel Indoor Gateway (v3)
-
 services:
   mosquitto:
     image: eclipse-mosquitto:2.0
-    container_name: crimson_kestrel_broker
+    container_name: crimson_mosquitto
     restart: unless-stopped
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-    networks:
-      - weather_net
 
   influxdb:
     image: influxdb:2.7
-    container_name: crimson_kestrel_database
+    container_name: crimson_influxdb
     restart: unless-stopped
     ports:
       - "8086:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER}
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD}
-      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD:-crimsonkestrel123}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-crimson_kestrel}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-telemetry}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-crimson_secret_token_2026}
     volumes:
       - influxdb_data:/var/lib/influxdb2
-    networks:
-      - weather_net
+      - influxdb_config:/etc/influxdb2
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: crimson_kestrel_dashboard
+  telemetry_daemon:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: crimson_daemon
     restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - INFLUX_ORG=${INFLUX_ORG}
-      - INFLUX_BUCKET=${INFLUX_BUCKET}
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
-    depends_on:
-      - influxdb
+    command: >
+      python3 gateway/crimson_kestrel_daemon.py
+        --host mosquitto
+        --port 1883
+        --outdir /app/data
+        --influx-url http://influxdb:8086
+        --influx-token ${INFLUXDB_TOKEN:-crimson_secret_token_2026}
+        --influx-org ${INFLUXDB_ORG:-crimson_kestrel}
+        --influx-bucket ${INFLUXDB_BUCKET:-telemetry}
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./gateway/grafana_dashboard.json:/etc/grafana/provisioning/dashboards/files/grafana_dashboard.json:ro
-    networks:
-      - weather_net
-
-  gateway_daemon:
-    build: ./gateway
-    container_name: crimson_kestrel_gateway
-    restart: unless-stopped
+      - ./data:/app/data
     depends_on:
       - mosquitto
       - influxdb
-    # Explicit entrypoint guarantees that CMD arguments are passed to Python,
-    # preventing OCI runtime execution crashes regardless of Dockerfile syntax.
-    entrypoint: ["python", "crimson_kestrel_daemon.py"]
-    command: >
-      --host mosquitto
-      --port 1883
-      --outdir /app/data
-      --influx-url http://influxdb:8086
-      --influx-token "${INFLUX_TOKEN}"
-      --influx-org "${INFLUX_ORG}"
-      --influx-bucket "${INFLUX_BUCKET}"
-    volumes:
-      - ./data:/app/data
-    networks:
-      - weather_net
 
-networks:
-  weather_net:
-    driver: bridge
+  grafana:
+    image: grafana/grafana-oss:10.2.0
+    container_name: crimson_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    user: "472:472"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-crimsonkestrel123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-crimson_kestrel}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-telemetry}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-crimson_secret_token_2026}
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - influxdb
 
 volumes:
   mosquitto_data:
   mosquitto_log:
   influxdb_data:
-  grafana_data:
+  influxdb_config:

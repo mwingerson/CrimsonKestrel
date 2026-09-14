@@ -27,26 +27,31 @@ so the history of what's been dealt with stays visible.
 | 5 | Grafana showed no data end-to-end even after the Register #2 fix. | Done | Three independent bugs stacked: (1) `gateway_daemon`'s built image predated the Register #1 `influxdb-client` fix, so it was silently CSV-only — fixed by rebuilding. (2) The Grafana InfluxDB data source, when added by hand per the README's old instructions, gets a random auto-generated UID, but `gateway/grafana_dashboard.json` hardcodes `datasource.uid: "influxdb_telemetry"` on every panel — mismatch means every panel silently fails to resolve. Fixed permanently via Grafana provisioning (see Register #6). (3) The daemon's `load_current_ma` sanity floor was `-100.0`, rejecting 100% of system-telemetry readings — this circuit tracks a solar charge controller, which legitimately swings to roughly ±1000mA (charging vs. discharging), not just positive load draw. Widened the floor to `-1000.0` in `VALIDATION_RANGES`. |
 | 6 | Grafana required manual "Add data source" + "Import dashboard" UI steps every time, which is exactly what caused the datasource-UID mismatch in Register #5. | Done | Added Grafana provisioning: `grafana/provisioning/datasources/influxdb.yml` (data source pinned to `uid: influxdb_telemetry`, org/bucket/token pulled from `.env` via Grafana's native `${VAR}` provisioning-file interpolation) and `grafana/provisioning/dashboards/dashboards.yml` (file provider pointing at a mounted copy of `gateway/grafana_dashboard.json`). Both directories are mounted read-only into the `grafana` service in `docker-compose.yml`, along with the three new `INFLUX_*` env vars the data source YAML needs. README's dashboard section rewritten — it's now zero manual steps, log in and the dashboard is already there. |
 | 7 | `telegraf` service was crash-looping (`mqtt_consumer` configured with `data_format = "json_v2"` but no field-mapping sub-block) and, even fixed, would have written to a different measurement (`weather_metrics`) than what the dashboard queries (`weather`/`system`) — fully redundant with `gateway_daemon`'s own direct InfluxDB streaming. | Done | Removed entirely: the `telegraf` service from `docker-compose.yml`, the `telegraf/` directory, and references in this file. `gateway_daemon` is now the sole MQTT→InfluxDB path. |
+| 8 | A round of edits from another AI assistant (Gemini) left `docker-compose_v9.yml` and friends with two more of the same "labels don't line up" bugs as Register #5/#6, plus a permissions regression introduced while fixing one of them. | Done | (1) `grafana/provisioning/dashboards/dashboards.yml` pointed its `path` at `dashboards/grafana_dashboard.json`, but the actual file had been placed one level deeper at `dashboards/files/grafana_dashboard.json` — silently broke dashboard provisioning again. Fixed by moving the file up to match the declared path. (2) `docker-compose.yml`/`grafana/provisioning/datasources/datasources.yml` had been migrated to `INFLUXDB_*` env var names, but the real `.env` and `.env.example` still had the old `INFLUX_*` names — every `${INFLUXDB_*:-default}` was silently falling back to hardcoded defaults instead of the real token/org/bucket. Fixed by renaming the vars in `.env`/`.env.example`. (3) While switching Grafana's data dir from a Docker-managed named volume (`grafana_data`) to a host bind mount (`./grafana/data`, so state is visible/backup-able in-repo — see README's "Grafana Data Persistence" section), the bind-mounted directory was owned by the host user, not UID 472 that the `grafana` service runs as (`user: "472:472"`), so Grafana couldn't open its own SQLite db on startup. Fixed with `sudo chown -R 472:472 grafana/data` — chosen over loosening the directory's permission bits (`chmod -R o+rwX`) because it matches ownership to the actual running user instead of opening the data up to every user on the host. |
 
 ## FOR NEXT SESSION
 
 * **Read the PROJECT REGISTER above first and pick up from there.**
-* **Last completed:** Registers #5, #6, #7 closed — ran the gateway stack end-to-end for the first time this
-  project, confirmed Grafana was showing no data, and traced it to three stacked bugs (stale daemon image,
-  Grafana datasource-UID mismatch, an over-tight sanity range on `load_current_ma`). Fixed all three, added
-  Grafana provisioning so the datasource/dashboard setup can't drift out of sync again, and removed the
-  broken/redundant `telegraf` service. Verified live `temperature_c` and system (`bus_voltage_v`/
-  `load_current_ma`) readings resolve through Grafana's query API end-to-end.
+* **Last completed:** Register #8 closed — a round of edits from another AI assistant (Gemini) reintroduced
+  the same class of bug as Register #5/#6 (dashboard provisioning `path` pointing one directory level off
+  from where the JSON actually lived) plus a fresh `.env`/`docker-compose.yml` env-var-name mismatch
+  (`INFLUX_*` vs `INFLUXDB_*`) that was silently defeating token/org/bucket overrides. Also moved Grafana's
+  data directory from a Docker-managed named volume to a host bind mount (`./grafana/data`) for in-repo
+  visibility/backup, which surfaced a UID-472-vs-host-user permission mismatch on startup — fixed via
+  `chown`, documented in README's new "Grafana Data Persistence" section. Left several versioned scratch
+  files behind from that Gemini session (`docker-compose_v7/v8/v9.yml`, `gateway/Dockerfile_v8/v9`,
+  `grafana/provisioning/datasources/influxdb.yml_del_me`) — not yet cleaned up.
 * **MVP scoping decision:** Register #3 (firmware soak-test tooling) is intentionally deprioritized — not
   required to demo a working pipeline for a resume-facing MVP. Only revisit if real field flakiness shows up.
 * **Current blockers / state:** Repo is still pre-first-commit. Gateway stack fully functional and
   runtime-verified (not just statically reviewed) as of this session. Remember: `docker compose up -d
   --build` after any change under `gateway/`, or the container will keep running a stale image.
-* **Immediate next step:** Nothing blocking for MVP right now — the pipeline works end to end. Good next
-  items if there's more time before shipping: (1) visually eyeball the dashboard in a browser rather than
-  just via the Grafana query API, (2) double check the `load_current_ma` ±1000mA range is actually the right
-  bound for the specific solar charge controller in use, (3) Register #3 if you decide it's worth it after
-  all.
+* **Immediate next step:** Delete the leftover scratch/versioned files listed above once confirmed the
+  current `docker-compose.yml`/`gateway/Dockerfile`/`grafana/provisioning/datasources/datasources.yml` are
+  the ones to keep — they're a recurring source of "which file is real" confusion. Other good next items:
+  (1) visually eyeball the dashboard in a browser rather than just via the Grafana query API, (2) double
+  check the `load_current_ma` ±1000mA range is actually the right bound for the specific solar charge
+  controller in use, (3) Register #3 if you decide it's worth it after all.
 
 ## What this is
 
