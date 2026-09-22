@@ -35,7 +35,7 @@ Refer to this absolute physical pin-to-pin wiring map when jumping components on
 | Source Module Pin | Target ESP32-C6 Pin | Function | Wiring Notes |
 | :--- | :--- | :--- | :--- |
 | **DHT22 Pin 1 ($V_{CC}$)** | **3.3V Rail** | Sensor Power | Run directly from the common 3.3V breadboard rail. |
-| **DHT22 Pin 2 (DATA)** | **GPIO15** | Single-Bus Serial | Connect directly to GPIO15. |
+| **DHT22 Pin 2 (DATA)** | **GPIO1** | Single-Bus Serial | Connect directly to GPIO1 (chosen to avoid ESP32-C6 strapping-pin conflicts). |
 | **DHT22 Pin 3 (NC)** | *Floating* | Not Connected | Leave disconnected. |
 | **DHT22 Pin 4 (GND)** | **GND Rail** | System Ground | Connect directly to your star ground rail. |
 | **INA219 VCC** | **3.3V Rail** | Chip Power | Powers the internal I2C ADC and logic gates. |
@@ -134,10 +134,10 @@ Firmware Version: 1.15.2 (Nested System, Power Stats & Secrets Include)
 [SENSOR] DHT22 Temp: 22.4 C | Humidity: 41.2 %
 [POWER] Bus Voltage: 3.95 V | Load Current: 42.1 mA
 [POWER] INA219 placed in I2C Power-Down Mode (<15uA).
-[WIFI] Establishing connection to ARRIS-FCF9
+[WIFI] Establishing connection to <YOUR_WIFI_SSID>
 ......
 [WIFI] Connected.
-[WIFI] Node IP: 192.168.0.114
+[WIFI] Node IP: <NODE_IP>
 [MQTT] Subscribed to status and command topics.
 [MQTT] Publishing weather package... success.
 [MQTT] Publishing system package... success.

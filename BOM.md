@@ -46,7 +46,7 @@ All breakout modules share the physical I2C bus lines in parallel:
 | **GND (All)** | **GND** | Ground Plane | Star ground configuration to prevent loops and signal noise. |
 | **SDA (INA219)** | **GPIO19** | I2C Data | Communicates battery diagnostics. Shared hardware I2C bus. |
 | **SCL (INA219)** | **GPIO20** | I2C Clock | Shared hardware I2C bus lines. |
-| **DATA (DHT22)** | **GPIO15** | Single-Bus Serial | Uses an internal or external 10kΩ pull-up resistor to 3.3V. |
+| **DATA (DHT22)** | **GPIO1** | Single-Bus Serial | Uses an internal or external 10kΩ pull-up resistor to 3.3V. Chosen to avoid ESP32-C6 strapping-pin conflicts. |
 
 ---
 
@@ -82,4 +82,4 @@ Because your battery capacity is large (3000mAh) and the ESP32-C6's single-shot 
 ### 3. Air Quality: Sensirion SPS30 Particulate Matter Sensor
 *   **Estimated Cost:** ~$35.00 – $45.00.
 *   **Interface:** I2C (shares GPIO19/SDA and GPIO20/SCL).
-*   **Integration:** Features an automated high-RPM self-cleaning fan routine to prevent long-term optical drift. Requires a gated load switch (such as a P-channel MOSFET) controlled by **GPIO1** to completely isolate and power-down the sensor's fan during deep-sleep states.
+*   **Integration:** Features an automated high-RPM self-cleaning fan routine to prevent long-term optical drift. Requires a gated load switch (such as a P-channel MOSFET) to completely isolate and power-down the sensor's fan during deep-sleep states. ⚠️ **Pin conflict:** GPIO1 is already used for the DHT22 data line (see wiring table above) — pick a different free GPIO for this switch when implementing Phase 2.
